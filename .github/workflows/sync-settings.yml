@@ -1,0 +1,26 @@
+name: Sync settings.yml
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/settings.yml"
+      - ".github/workflows/sync-settings.yml"
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      administration: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Sync repository settings
+        uses: ./
+        with:
+          settings-path: .github/settings.yml
+          github-token: ${{ secrets.GITHUB_TOKEN }}

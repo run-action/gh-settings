@@ -1,0 +1,20 @@
+# Repository metadata, synced by run-action/repo-settings
+# (https://github.com/run-action/repo-settings).
+# Edit via PR; do not change these fields directly in the GitHub UI.
+
+repository:
+  description: "App-free GitHub Action that syncs .github/settings.yml to repo settings."
+  topics:
+    - github-actions
+    - settings
+    - probot-alternative
+    - labels
+    - automation
+
+labels:
+  - name: bug
+    color: B60205
+    description: Something is not working
+  - name: enhancement
+    color: A2EEEF
+    description: New feature or request

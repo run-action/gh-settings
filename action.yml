@@ -1,0 +1,30 @@
+name: Sync settings.yml
+description: >-
+  Sync .github/settings.yml to repository settings via the GitHub REST API.
+  App-free alternative to probot/settings.
+
+inputs:
+  settings-path:
+    description: Path to the settings YAML file.
+    required: false
+    default: .github/settings.yml
+  github-token:
+    description: GitHub token with administration:write permission.
+    required: false
+    default: ${{ github.token }}
+  dry-run:
+    description: If true, report changes without applying them.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Sync settings
+      shell: bash
+      env:
+        SETTINGS_PATH: ${{ inputs.settings-path }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        GH_HOST: ${{ github.api_url }}
+      run: ${{ github.action_path }}/scripts/sync-settings.sh
