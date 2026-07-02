@@ -1,0 +1,28 @@
+# Checks this repository against a recommended secure-OSS baseline.
+# To reuse in another repo, copy this file plus scripts/healthcheck.sh
+# (or check out run-action/repo-settings and run the script from there).
+name: Repo healthcheck
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1" # weekly, Monday morning
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Run healthcheck
+        env:
+          # The default token cannot see admin-only settings (secret scanning,
+          # Actions token permissions) — those checks degrade to warnings.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/healthcheck.sh

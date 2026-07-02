@@ -17,6 +17,10 @@ inputs:
     required: false
     default: "false"
 
+branding:
+  icon: settings
+  color: blue
+
 runs:
   using: composite
   steps:
@@ -26,5 +30,4 @@ runs:
         SETTINGS_PATH: ${{ inputs.settings-path }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         DRY_RUN: ${{ inputs.dry-run }}
-        GH_HOST: ${{ github.api_url }}
       run: ${{ github.action_path }}/scripts/sync-settings.sh
