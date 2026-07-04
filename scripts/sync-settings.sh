@@ -8,8 +8,14 @@ if [[ -n "${DEBUG:-}" ]]; then set -x; fi
 SETTINGS_PATH="${SETTINGS_PATH:-.github/settings.yml}"
 DRY_RUN="${DRY_RUN:-false}"
 
-if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-  echo "::error::GITHUB_TOKEN is not set. Pass github-token input." >&2
+# Token: $GITHUB_TOKEN, then $GH_TOKEN, then `gh auth token` (local runs).
+GITHUB_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+if [[ -z "$GITHUB_TOKEN" ]] && command -v gh >/dev/null 2>&1; then
+  GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+  [[ -n "$GITHUB_TOKEN" ]] && echo "Using token from gh auth."
+fi
+if [[ -z "$GITHUB_TOKEN" ]]; then
+  echo "::error::No token found. Pass the github-token input (in Actions) or set GITHUB_TOKEN." >&2
   exit 1
 fi
 
@@ -22,11 +28,20 @@ fi
 # https://<host>/api/v3 on GHES. Both take /repos/... appended directly.
 API_BASE="${GITHUB_API_URL:-https://api.github.com}"
 
-# Determine repository (owner/name) from GITHUB_REPOSITORY if available,
-# otherwise let the user override via REPOSITORY env var.
+# Determine repository (owner/name): REPOSITORY env var, then
+# GITHUB_REPOSITORY (set on Actions runners), then the origin remote of the
+# current git checkout (local runs).
 REPO="${REPOSITORY:-"${GITHUB_REPOSITORY:-}"}"
+if [[ -z "$REPO" ]] && command -v git >/dev/null 2>&1; then
+  origin_url="$(git remote get-url origin 2>/dev/null || true)"
+  origin_url="${origin_url%.git}"
+  if [[ "$origin_url" =~ github\.com[:/]([^/]+/[^/]+)$ ]]; then
+    REPO="${BASH_REMATCH[1]}"
+    echo "Repository detected from origin remote: $REPO"
+  fi
+fi
 if [[ -z "$REPO" ]]; then
-  echo "::error::REPOSITORY or GITHUB_REPOSITORY must be set." >&2
+  echo "::error::Could not determine repository. Set REPOSITORY=owner/repo." >&2
   exit 1
 fi
 repo_path="repos/$REPO"
@@ -50,9 +65,9 @@ urlencode() { jq -nr --arg v "$1" '$v | @uri'; }
 api() {
   local method="$1" path="$2" body="${3:-}"
   local url="$API_BASE/$path"
-  local args=(-X "$method" -sS --fail-with-body \
-    -H "Authorization: Bearer $GITHUB_TOKEN" \
-    -H "Accept: application/vnd.github+json" \
+  local args=(-X "$method" -sS --fail-with-body
+    -H "Authorization: Bearer $GITHUB_TOKEN"
+    -H "Accept: application/vnd.github+json"
     -H "X-GitHub-Api-Version: 2022-11-28")
   if [[ -n "$body" ]]; then
     args+=(-d "$body")
@@ -185,8 +200,10 @@ sync_labels() {
       old_color="$(printf '%s' "${existing_map["$name"]}" | cut -f1)"
       old_desc="$(printf '%s' "${existing_map["$name"]}" | cut -f2)"
       # Normalize colors (strip leading #, uppercase).
-      old_color="${old_color#\#}"; old_color="${old_color^^}"
-      color="${color#\#}"; color="${color^^}"
+      old_color="${old_color#\#}"
+      old_color="${old_color^^}"
+      color="${color#\#}"
+      color="${color^^}"
       if [[ "$old_color" == "$color" && "$old_desc" == "$desc" ]]; then
         echo "  = $name (unchanged)"
         continue

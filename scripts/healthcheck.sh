@@ -7,7 +7,7 @@
 # The repository defaults to $GITHUB_REPOSITORY, then the origin remote of
 # the current git checkout. With --strict, warnings also fail the run.
 #
-# Auth: $GITHUB_TOKEN, falling back to `gh auth token`. Checks that need
+# Auth: $GITHUB_TOKEN, then $GH_TOKEN, then `gh auth token`. Checks that need
 # admin access (secret scanning status, Actions token permissions, ...)
 # degrade to warnings when the token cannot see them.
 set -euo pipefail
@@ -58,7 +58,7 @@ fi
 
 API_BASE="${GITHUB_API_URL:-https://api.github.com}"
 
-TOKEN="${GITHUB_TOKEN:-}"
+TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 if [[ -z "$TOKEN" ]] && command -v gh >/dev/null 2>&1; then
   TOKEN="$(gh auth token 2>/dev/null || true)"
 fi

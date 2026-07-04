@@ -1,6 +1,10 @@
 name: Sync settings.yml
 
 on:
+  pull_request:
+    paths:
+      - ".github/settings.yml"
+      - ".github/workflows/sync-settings.yml"
   push:
     branches: [main]
     paths:
@@ -15,12 +19,21 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      administration: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
+      # On pull requests: dry-run preview with the built-in token (no writes,
+      # no secrets needed). On push/dispatch: apply for real — that needs a
+      # token with "Administration: write" on this repo (the workflow
+      # GITHUB_TOKEN cannot be granted it), here a fine-grained PAT stored
+      # as the REPO_SETTINGS_TOKEN secret.
       - name: Sync repository settings
         uses: ./
         with:
           settings-path: .github/settings.yml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: ${{ github.event_name == 'pull_request' }}
+          github-token: >-
+            ${{ github.event_name == 'pull_request'
+                && github.token || secrets.REPO_SETTINGS_TOKEN }}

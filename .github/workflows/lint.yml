@@ -14,16 +14,33 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Run shellcheck
         run: |
-          # shellcheck is preinstalled on ubuntu-24.04 runners.
-          shellcheck scripts/*.sh
+          # Preinstalled on GitHub's ubuntu-24.04 runners.
+          shellcheck scripts/*.sh gh-repo-settings
 
   yamllint:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Run yamllint
         run: pipx run yamllint --strict .
+
+  actionlint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run actionlint
+        run: >-
+          docker run --rm -v "$PWD":/repo -w /repo
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -color

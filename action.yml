@@ -9,9 +9,12 @@ inputs:
     required: false
     default: .github/settings.yml
   github-token:
-    description: GitHub token with administration:write permission.
-    required: false
-    default: ${{ github.token }}
+    description: >-
+      Token that can update repository settings — a fine-grained PAT with
+      "Administration: write" on the target repo, or a GitHub App
+      installation token. The workflow GITHUB_TOKEN cannot be granted this
+      permission, so it will not work here.
+    required: true
   dry-run:
     description: If true, report changes without applying them.
     required: false

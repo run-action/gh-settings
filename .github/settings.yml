@@ -7,6 +7,7 @@ repository:
     - github-actions
     - settings
     - automation
+    - experimental
   # Recommended defaults for a tidy, secure open source repo — copy freely.
   # Checked by scripts/healthcheck.sh alongside settings this action cannot
   # sync (branch protection, secret scanning, ...). All keys in this block
