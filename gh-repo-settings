@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# CLI entry point wrapping scripts/. Also installable as a gh extension
-# (https://cli.github.com/manual/gh_extension) — gh requires the repository
-# to be named gh-repo-settings for that.
 #
 # Usage:
+#   gh-repo-settings init [OWNER/REPO] [--settings PATH]
 #   gh-repo-settings sync [OWNER/REPO] [--dry-run] [--settings PATH]
 #   gh-repo-settings check [OWNER/REPO] [--strict]
 #
+# init   Write a recommended settings.yml if none exists, seeded from the repo.
 # sync   Apply .github/settings.yml to the repository's settings.
 # check  Audit the repository against the secure-OSS baseline (read-only).
 #
@@ -16,12 +15,30 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"
 [[ $# -gt 0 ]] && shift
 
 case "$cmd" in
+  init)
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --settings)
+          shift
+          export SETTINGS_PATH="${1:?--settings needs a path}"
+          ;;
+        */*) export REPOSITORY="$1" ;;
+        *)
+          echo "Unknown argument: $1" >&2
+          usage >&2
+          exit 2
+          ;;
+      esac
+      shift
+    done
+    exec "$root/scripts/init-settings.sh"
+    ;;
   sync)
     while [[ $# -gt 0 ]]; do
       case "$1" in

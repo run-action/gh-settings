@@ -123,9 +123,17 @@ sync_repository() {
 
   # enable_vulnerability_alerts / enable_automated_security_fixes (probot
   # schema) are dedicated endpoints, not PATCH fields — handled separately.
+  # enable_secret_scanning / enable_secret_scanning_push_protection map to
+  # the nested security_and_analysis PATCH shape. enable_private_vulnerability_reporting
+  # and enable_immutable_releases are dedicated toggle endpoints (handled below).
   # Build a patch object containing only present, non-null keys.
-  patch="$(jq -c 'del(.topics, .enable_vulnerability_alerts, .enable_automated_security_fixes)
-    | with_entries(select(.value != null))' <<<"$repo_json")"
+  patch="$(jq -c '
+    ({} * (if has("enable_secret_scanning") then {secret_scanning: {status: (if .enable_secret_scanning then "enabled" else "disabled" end)}} else {} end)
+         * (if has("enable_secret_scanning_push_protection") then {secret_scanning_push_protection: {status: (if .enable_secret_scanning_push_protection then "enabled" else "disabled" end)}} else {} end)) as $sa
+    | del(.topics, .enable_vulnerability_alerts, .enable_automated_security_fixes, .enable_secret_scanning, .enable_secret_scanning_push_protection, .enable_private_vulnerability_reporting, .enable_immutable_releases)
+    | (if $sa == {} then . else . + {security_and_analysis: $sa} end)
+    | with_entries(select(.value != null))
+  ' <<<"$repo_json")"
 
   # Fetch current settings to skip fields that already match; on read failure
   # degrade to syncing everything (the writes are idempotent).
@@ -161,10 +169,13 @@ sync_repository() {
   # On/off toggles with dedicated PUT/DELETE endpoints (probot schema).
   sync_toggle enable_vulnerability_alerts vulnerability-alerts
   sync_toggle enable_automated_security_fixes automated-security-fixes
+  sync_toggle enable_private_vulnerability_reporting private-vulnerability-reporting
+  sync_toggle enable_immutable_releases immutable-releases
 }
 
 # vulnerability-alerts answers via status code (204 on / 404 off);
-# automated-security-fixes answers 200 with {"enabled": bool}.
+# automated-security-fixes and immutable-releases answer 200 with
+# {"enabled": bool} when on, 404 when off.
 toggle_state() {
   local endpoint="$1" response status body
   if ! response="$(curl -sS -w $'\n%{http_code}' \
@@ -178,12 +189,12 @@ toggle_state() {
   status="${response##*$'\n'}"
   body="${response%$'\n'*}"
   case "$status" in
-    204) echo true ;;
-    404) echo false ;;
-    200) jq -r 'if .enabled == true then "true"
+  204) echo true ;;
+  404) echo false ;;
+  200) jq -r 'if .enabled == true then "true"
                 elif .enabled == false then "false"
                 else "unknown" end' <<<"$body" 2>/dev/null || echo unknown ;;
-    *) echo unknown ;;
+  *) echo unknown ;;
   esac
 }
 

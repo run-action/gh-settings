@@ -10,7 +10,12 @@ drop-in, app-free alternative to [probot/settings](https://github.com/apps/setti
   `description`, `homepage`, `topics`, `private`, `has_issues`, `has_projects`,
   `has_wiki`, `default_branch`, the merge-strategy toggles,
   `delete_branch_on_merge`, `enable_vulnerability_alerts`,
-  `enable_automated_security_fixes`
+  `enable_automated_security_fixes`, plus `enable_secret_scanning`,
+  `enable_secret_scanning_push_protection`, `enable_private_vulnerability_reporting`,
+  and `enable_immutable_releases` (translated to the `security_and_analysis`
+  PATCH shape and the private-vulnerability-reporting / immutable-releases
+  toggle endpoints respectively — not part of the probot/settings schema, but
+  accepted here for a single-file secure baseline)
 - **`repository_extra:`** — any other
   [Update-a-repository](https://docs.github.com/en/rest/repos/repos#update-a-repository)
   field (e.g. `visibility`, `has_discussions`, `allow_auto_merge`). Merged
@@ -32,11 +37,17 @@ checkout; the token from `$GITHUB_TOKEN`, `$GH_TOKEN`, or `gh auth token`.
 Syncing needs admin on the target repo.
 
 ```console
+$ gh-repo-settings init              # write a recommended settings.yml to start from
 $ gh-repo-settings sync --dry-run    # preview against the current checkout
 $ gh-repo-settings sync              # apply
 $ gh-repo-settings sync owner/repo --settings path/to/settings.yml
 $ gh-repo-settings check [owner/repo] [--strict]    # read-only audit (below)
 ```
+
+`init` refuses to overwrite an existing file. It writes the recommended
+secure baseline (the same one this repo uses), seeding `description`,
+`homepage`, and `topics` from the live repository when it can read them, so
+the first `sync` doesn't blank out metadata you already set.
 
 `scripts/sync-settings.sh` and `scripts/healthcheck.sh` are standalone bash —
 copy them anywhere; they take the same values as environment variables
@@ -140,12 +151,13 @@ stored token.
 ## Repo healthcheck
 
 `gh-repo-settings check` audits a repository against a secure-OSS baseline —
-including settings the sync *can't* manage: secret scanning + push
-protection, Dependabot, Actions token defaults, community
+including settings the sync *can't* manage: Dependabot, Actions token defaults, community
 files (SECURITY.md, CODEOWNERS, …), and workflow hygiene (SHA-pinned actions,
 explicit `permissions:`, `pull_request_target` usage). Admin-only checks
 degrade to warnings without an admin token; `--strict` makes warnings fail
-too. Exits non-zero on failure, so it works in CI — see
+too. Dependabot malware alerts get a reminder line rather than a real check —
+GitHub exposes no REST API to read or set that toggle, so it can only be
+enabled by hand under Settings > Advanced Security. Exits non-zero on failure, so it works in CI — see
 [`healthcheck.yml`](.github/workflows/healthcheck.yml) for a copyable weekly
 workflow. This repo's [`.github/settings.yml`](.github/settings.yml) doubles
 as a copyable baseline.
