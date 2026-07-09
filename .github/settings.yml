@@ -1,5 +1,5 @@
-# Repository metadata, synced by run-action/gh-repo-settings
-# (https://github.com/run-action/gh-repo-settings).
+# Repository metadata, synced by run-action/gh-settings
+# (https://github.com/run-action/gh-settings).
 
 repository:
   description: "Sync .github/settings.yml to repo settings."

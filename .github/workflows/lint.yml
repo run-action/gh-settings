@@ -20,7 +20,7 @@ jobs:
       - name: Run shellcheck
         run: |
           # Preinstalled on GitHub's ubuntu-24.04 runners.
-          shellcheck scripts/*.sh gh-repo-settings
+          shellcheck scripts/*.sh gh-settings
 
   yamllint:
     runs-on: ubuntu-24.04

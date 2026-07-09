@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Usage:
-#   gh-repo-settings init [OWNER/REPO] [--settings PATH]
-#   gh-repo-settings sync [OWNER/REPO] [--dry-run] [--settings PATH]
-#   gh-repo-settings check [OWNER/REPO] [--strict]
+#   gh-settings init [OWNER/REPO] [--settings PATH]
+#   gh-settings sync [OWNER/REPO] [--dry-run] [--settings PATH]
+#   gh-settings check [OWNER/REPO] [--strict]
 #
 # init   Write a recommended settings.yml if none exists, seeded from the repo.
 # sync   Apply .github/settings.yml to the repository's settings.

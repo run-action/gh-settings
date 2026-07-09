@@ -60,9 +60,9 @@ fi
 mkdir -p "$(dirname "$SETTINGS_PATH")"
 {
   cat <<'EOF'
-# Repository settings, synced by run-action/gh-repo-settings
-# (https://github.com/run-action/gh-repo-settings). Written by
-# `gh-repo-settings init` as a recommended secure baseline; review and adjust.
+# Repository settings, synced by run-action/gh-settings
+# (https://github.com/run-action/gh-settings). Written by
+# `gh-settings init` as a recommended secure baseline; review and adjust.
 
 repository:
 EOF
@@ -91,7 +91,7 @@ EOF
   enable_immutable_releases: true
 
 # Extra "Update a repository" API fields that are NOT part of the de facto
-# probot/settings schema. gh-repo-settings merges them over repository:;
+# probot/settings schema. gh-settings merges them over repository:;
 # probot/settings ignores this section.
 repository_extra:
   allow_auto_merge: true
@@ -127,4 +127,4 @@ rulesets:
 EOF
 } >"$SETTINGS_PATH"
 
-echo "Wrote $SETTINGS_PATH. Preview the sync with: gh-repo-settings sync --dry-run"
+echo "Wrote $SETTINGS_PATH. Preview the sync with: gh-settings sync --dry-run"

@@ -1,6 +1,6 @@
 # Checks this repository against a recommended secure-OSS baseline.
 # To reuse in another repo, copy this file plus scripts/healthcheck.sh
-# (or check out run-action/gh-repo-settings and run the script from there).
+# (or check out run-action/gh-settings and run the script from there).
 name: Repo healthcheck
 
 on:
