@@ -1,4 +1,4 @@
-# repo-settings
+# gh-repo-settings
 
 Syncs `.github/settings.yml` to repository settings via the GitHub REST API —
 a CLI first, and a GitHub Action for PR previews and drift detection. A
@@ -16,6 +16,11 @@ drop-in, app-free alternative to [probot/settings](https://github.com/apps/setti
   field (e.g. `visibility`, `has_discussions`, `allow_auto_merge`). Merged
   over `repository:`; probot/settings ignores it, so the file stays portable
 - **`labels:`** — creates / updates / deletes labels to match the file
+- **`rulesets:`** — creates / updates branch or tag rulesets, matched by
+  `name`. Not part of the probot/settings schema, so this mirrors the
+  [Create/update a repository ruleset](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset)
+  API shape directly. Rulesets removed from the file are left alone —
+  unrelated rulesets may exist on the repo
 
 ## CLI
 
@@ -47,9 +52,9 @@ To install as a [gh extension](https://cli.github.com/manual/gh_extension)
 The flake packages the CLI with its dependencies (`yq`, `jq`, `curl`, `gh`):
 
 ```console
-$ nix run github:run-action/repo-settings -- sync --dry-run
-$ nix run github:run-action/repo-settings -- check
-$ nix profile install github:run-action/repo-settings
+$ nix run github:run-action/gh-repo-settings -- sync --dry-run
+$ nix run github:run-action/gh-repo-settings -- check
+$ nix profile install github:run-action/gh-repo-settings
 ```
 
 `nix develop` opens a dev shell with every linter CI runs plus
@@ -83,7 +88,7 @@ jobs:
           persist-credentials: false
 
       - name: Preview settings sync
-        uses: run-action/repo-settings@main
+        uses: run-action/gh-repo-settings@main
         with:
           dry-run: "true"
           github-token: ${{ github.token }}
@@ -112,7 +117,7 @@ jobs:
           private-key: ${{ secrets.SETTINGS_APP_PRIVATE_KEY }}
 
       - name: Sync repository settings
-        uses: run-action/repo-settings@main
+        uses: run-action/gh-repo-settings@main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
 ```
@@ -135,8 +140,8 @@ stored token.
 ## Repo healthcheck
 
 `gh-repo-settings check` audits a repository against a secure-OSS baseline —
-the settings the sync *can't* manage: branch protection / rulesets, secret
-scanning + push protection, Dependabot, Actions token defaults, community
+including settings the sync *can't* manage: secret scanning + push
+protection, Dependabot, Actions token defaults, community
 files (SECURITY.md, CODEOWNERS, …), and workflow hygiene (SHA-pinned actions,
 explicit `permissions:`, `pull_request_target` usage). Admin-only checks
 degrade to warnings without an admin token; `--strict` makes warnings fail

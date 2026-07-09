@@ -1,6 +1,6 @@
 # Checks this repository against a recommended secure-OSS baseline.
 # To reuse in another repo, copy this file plus scripts/healthcheck.sh
-# (or check out run-action/repo-settings and run the script from there).
+# (or check out run-action/gh-repo-settings and run the script from there).
 name: Repo healthcheck
 
 on:
@@ -24,7 +24,9 @@ jobs:
 
       - name: Run healthcheck
         env:
-          # The default token cannot see admin-only settings (secret scanning,
-          # Actions token permissions) — those checks degrade to warnings.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Admin-only settings (secret scanning, Actions token permissions)
+          # are only visible to an admin token, so prefer REPO_SETTINGS_TOKEN
+          # (the same fine-grained PAT the sync workflow uses) and fall back
+          # to the default token, degrading those checks to warnings.
+          GITHUB_TOKEN: ${{ secrets.REPO_SETTINGS_TOKEN || secrets.GITHUB_TOKEN }}
         run: scripts/healthcheck.sh

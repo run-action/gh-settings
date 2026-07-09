@@ -89,6 +89,20 @@ mutate() {
   fi
 }
 
+# shellcheck disable=SC2016 # jq source, not a shell expansion
+JQ_PROJECT='def project($t):
+  . as $cur
+  | if ($t | type) == "object" and ($cur | type) == "object" then
+      [ $t | keys_unsorted[] | . as $k
+        | select($cur | has($k))
+        | {key: $k, value: ($cur[$k] | project($t[$k]))} ]
+      | from_entries
+    elif ($t | type) == "array" and ($cur | type) == "array"
+         and ($t | length) == ($cur | length) then
+      [ range($t | length) as $i | ($cur[$i] | project($t[$i])) ]
+    else $cur end;
+'
+
 # --- Sync repository metadata ----------------------------------------------
 # repository: follows the de facto probot/settings schema; repository_extra:
 # holds additional "Update a repository" API fields outside that schema and
@@ -113,19 +127,35 @@ sync_repository() {
   patch="$(jq -c 'del(.topics, .enable_vulnerability_alerts, .enable_automated_security_fixes)
     | with_entries(select(.value != null))' <<<"$repo_json")"
 
+  # Fetch current settings to skip fields that already match; on read failure
+  # degrade to syncing everything (the writes are idempotent).
+  local current=""
+  current="$(api GET "$repo_path" 2>/dev/null || true)"
+  if [[ -z "$current" ]]; then
+    echo "::warning::Could not fetch current repository settings; syncing all fields."
+  elif [[ "$patch" != "{}" ]]; then
+    patch="$(jq -c --argjson cur "$current" "${JQ_PROJECT}"'
+      with_entries(select(.value as $v | ($cur[.key] | project($v)) != $v))' <<<"$patch")"
+  fi
+
   if [[ "$patch" != "{}" ]]; then
     echo "Syncing repository settings:"
     jq '.' <<<"$patch"
     mutate PATCH "$repo_path" "$patch"
   else
-    echo "No repository fields to sync."
+    echo "Repository settings already match, nothing to sync."
   fi
 
   # Topics: PUT /repos/{owner}/{repo}/topics
   if [[ "$topics_json" != "[]" ]]; then
-    echo "Syncing topics:"
-    jq -r '.[]' <<<"$topics_json" | sed 's/^/  - /'
-    mutate PUT "$repo_path/topics" "$(jq -c '{names: .}' <<<"$topics_json")"
+    if [[ -n "$current" ]] &&
+      jq -e --argjson cur "$current" '($cur.topics // [] | sort) == sort' <<<"$topics_json" >/dev/null; then
+      echo "Topics already match, skipping."
+    else
+      echo "Syncing topics:"
+      jq -r '.[]' <<<"$topics_json" | sed 's/^/  - /'
+      mutate PUT "$repo_path/topics" "$(jq -c '{names: .}' <<<"$topics_json")"
+    fi
   fi
 
   # On/off toggles with dedicated PUT/DELETE endpoints (probot schema).
@@ -133,21 +163,47 @@ sync_repository() {
   sync_toggle enable_automated_security_fixes automated-security-fixes
 }
 
+# vulnerability-alerts answers via status code (204 on / 404 off);
+# automated-security-fixes answers 200 with {"enabled": bool}.
+toggle_state() {
+  local endpoint="$1" response status body
+  if ! response="$(curl -sS -w $'\n%{http_code}' \
+    -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    "$API_BASE/$repo_path/$endpoint" 2>/dev/null)"; then
+    echo unknown
+    return 0
+  fi
+  status="${response##*$'\n'}"
+  body="${response%$'\n'*}"
+  case "$status" in
+    204) echo true ;;
+    404) echo false ;;
+    200) jq -r 'if .enabled == true then "true"
+                elif .enabled == false then "false"
+                else "unknown" end' <<<"$body" 2>/dev/null || echo unknown ;;
+    *) echo unknown ;;
+  esac
+}
+
 # sync_toggle KEY ENDPOINT — PUT when the key is true, DELETE when false,
-# no-op when absent. Reads from $repo_json.
+# no-op when absent or already in the desired state. Reads from $repo_json.
 sync_toggle() {
   local key="$1" endpoint="$2" val
   val="$(jq -r --arg k "$key" 'if has($k) then .[$k] | tostring else "" end' <<<"$repo_json")"
-  case "$val" in
-    true)
-      echo "Enabling $key"
-      mutate PUT "$repo_path/$endpoint"
-      ;;
-    false)
-      echo "Disabling $key"
-      mutate DELETE "$repo_path/$endpoint"
-      ;;
-  esac
+  [[ "$val" != "true" && "$val" != "false" ]] && return 0
+  if [[ "$(toggle_state "$endpoint")" == "$val" ]]; then
+    echo "$key already $val, skipping."
+    return 0
+  fi
+  if [[ "$val" == "true" ]]; then
+    echo "Enabling $key"
+    mutate PUT "$repo_path/$endpoint"
+  else
+    echo "Disabling $key"
+    mutate DELETE "$repo_path/$endpoint"
+  fi
 }
 
 # --- Sync labels ------------------------------------------------------------
@@ -234,12 +290,79 @@ sync_labels() {
   echo "Labels synced: $count created or updated."
 }
 
+# --- Sync rulesets -----------------------------------------------------------
+sync_rulesets() {
+  if ! yq -e 'has("rulesets")' "$SETTINGS_PATH" >/dev/null 2>&1; then
+    echo "No rulesets: block found, skipping ruleset sync."
+    return 0
+  fi
+
+  echo "Syncing rulesets:"
+
+  local existing="[]" page=1 batch
+  while :; do
+    if ! batch="$(api GET "$repo_path/rulesets?per_page=100&page=$page")"; then
+      if is_dry_run; then
+        echo "::warning::Could not fetch existing rulesets; dry-run assumes none exist."
+        existing="[]"
+        break
+      fi
+      return 1
+    fi
+    existing="$(jq -c --argjson batch "$batch" '. + $batch' <<<"$existing")"
+    if [[ "$(jq 'length' <<<"$batch")" -lt 100 ]]; then
+      break
+    fi
+    page=$((page + 1))
+  done
+
+  local desired
+  desired="$(yq -o=json '.rulesets' "$SETTINGS_PATH")"
+
+  local count changed=0
+  count="$(jq 'length' <<<"$desired")"
+  for ((i = 0; i < count; i++)); do
+    local ruleset name existing_id
+    ruleset="$(jq -c ".[$i]" <<<"$desired")"
+    name="$(jq -r '.name' <<<"$ruleset")"
+    existing_id="$(jq -r --arg n "$name" '.[] | select(.name == $n) | .id' <<<"$existing" | head -n1)"
+
+    if [[ -n "$existing_id" ]]; then
+      # The list endpoint omits rules/conditions — fetch the full ruleset and
+      # compare its projection onto the desired shape; skip the PUT if equal.
+      local full=""
+      full="$(api GET "$repo_path/rulesets/$existing_id" 2>/dev/null || true)"
+      # Sort rules by type on both sides first: GitHub canonicalizes rule
+      # order on write, so YAML order must not affect the comparison.
+      if [[ -n "$full" ]] &&
+        jq -e --argjson cur "$full" "${JQ_PROJECT}"'
+             def norm: if (.rules | type) == "array" then .rules |= sort_by(.type) else . end;
+             norm as $d | ($cur | norm | project($d)) == $d' <<<"$ruleset" >/dev/null; then
+        echo "  = $name (unchanged)"
+        continue
+      fi
+      echo "  ~ $name (updating)"
+      mutate PUT "$repo_path/rulesets/$existing_id" "$ruleset"
+    else
+      echo "  + $name (creating)"
+      mutate POST "$repo_path/rulesets" "$ruleset"
+    fi
+    changed=$((changed + 1))
+  done
+
+  echo "Rulesets synced: $changed created or updated, $((count - changed)) unchanged."
+}
+
 echo "::group::Sync repository settings"
 sync_repository
 echo "::endgroup::"
 
 echo "::group::Sync labels"
 sync_labels
+echo "::endgroup::"
+
+echo "::group::Sync rulesets"
+sync_rulesets
 echo "::endgroup::"
 
 echo "Settings sync complete."

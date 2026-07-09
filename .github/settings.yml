@@ -1,5 +1,5 @@
-# Repository metadata, synced by run-action/repo-settings
-# (https://github.com/run-action/repo-settings).
+# Repository metadata, synced by run-action/gh-repo-settings
+# (https://github.com/run-action/gh-repo-settings).
 
 repository:
   description: "App-free GitHub Action that syncs .github/settings.yml to repo settings."
@@ -10,9 +10,10 @@ repository:
     - experimental
   # Recommended defaults for a tidy, secure open source repo — copy freely.
   # Checked by scripts/healthcheck.sh alongside settings this action cannot
-  # sync (branch protection, secret scanning, ...). All keys in this block
+  # sync (secret scanning, Dependabot, ...). All keys in this block
   # follow the de facto probot/settings schema
   # (https://github.com/repository-settings/app/blob/master/docs/plugins/repository.md).
+  private: false
   delete_branch_on_merge: true
   allow_squash_merge: true
   allow_merge_commit: false
@@ -33,3 +34,24 @@ repository_extra:
 #   - name: enhancement
 #     color: A2EEEF
 #     description: New feature or request
+
+# Tries to mirrors the "Create/update a repository ruleset" API shape directly:
+# https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset
+rulesets:
+  - name: default branch protection
+    target: branch
+    enforcement: active
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+    rules:
+      - type: deletion
+      - type: non_fast_forward
+      - type: pull_request
+        parameters:
+          required_approving_review_count: 1
+          dismiss_stale_reviews_on_push: true
+          require_code_owner_review: false
+          require_last_push_approval: false
+          required_review_thread_resolution: true
