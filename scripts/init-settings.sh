@@ -78,7 +78,8 @@ EOF
   cat <<'EOF'
   # All keys in this block follow the de facto probot/settings schema
   # (https://github.com/repository-settings/app/blob/master/docs/plugins/repository.md).
-  private: false
+  # Visibility is left unmanaged by default; uncomment to enforce it.
+  # private: false
   delete_branch_on_merge: true
   allow_squash_merge: true
   allow_merge_commit: false
