@@ -8,5 +8,5 @@ indent_style = space
 indent_size = 2
 
 # shfmt reads these (https://github.com/mvdan/sh#shfmt)
-[{*.sh,gh-repo-settings}]
+[{*.sh,gh-settings}]
 switch_case_indent = true

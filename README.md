@@ -1,4 +1,4 @@
-# gh-repo-settings
+# gh-settings
 
 Syncs `.github/settings.yml` to repository settings via the GitHub REST API —
 a CLI first, and a GitHub Action for PR previews and drift detection. A
@@ -37,11 +37,11 @@ checkout; the token from `$GITHUB_TOKEN`, `$GH_TOKEN`, or `gh auth token`.
 Syncing needs admin on the target repo.
 
 ```console
-$ gh-repo-settings init              # write a recommended settings.yml to start from
-$ gh-repo-settings sync --dry-run    # preview against the current checkout
-$ gh-repo-settings sync              # apply
-$ gh-repo-settings sync owner/repo --settings path/to/settings.yml
-$ gh-repo-settings check [owner/repo] [--strict]    # read-only audit (below)
+$ gh-settings init              # write a recommended settings.yml to start from
+$ gh-settings sync --dry-run    # preview against the current checkout
+$ gh-settings sync              # apply
+$ gh-settings sync owner/repo --settings path/to/settings.yml
+$ gh-settings check [owner/repo] [--strict]    # read-only audit (below)
 ```
 
 `init` refuses to overwrite an existing file. It writes the recommended
@@ -53,19 +53,18 @@ the first `sync` doesn't blank out metadata you already set.
 copy them anywhere; they take the same values as environment variables
 (`REPOSITORY`, `SETTINGS_PATH`, `DRY_RUN`).
 
-To install as a [gh extension](https://cli.github.com/manual/gh_extension)
-(`gh repo-settings sync`), gh requires the repository to be *named*
-`gh-repo-settings` — fork/rename, then
-`gh extension install <owner>/gh-repo-settings`.
+To install as a [gh extension](https://cli.github.com/manual/gh_extension),
+`gh extension install run-action/gh-settings` - then `gh settings check`,
+`gh settings sync --dry-run`, etc.
 
 ### Nix
 
 The flake packages the CLI with its dependencies (`yq`, `jq`, `curl`, `gh`):
 
 ```console
-$ nix run github:run-action/gh-repo-settings -- sync --dry-run
-$ nix run github:run-action/gh-repo-settings -- check
-$ nix profile install github:run-action/gh-repo-settings
+$ nix run github:run-action/gh-settings -- sync --dry-run
+$ nix run github:run-action/gh-settings -- check
+$ nix profile install github:run-action/gh-settings
 ```
 
 `nix develop` opens a dev shell with every linter CI runs plus
@@ -99,7 +98,7 @@ jobs:
           persist-credentials: false
 
       - name: Preview settings sync
-        uses: run-action/gh-repo-settings@main
+        uses: run-action/gh-settings@main
         with:
           dry-run: "true"
           github-token: ${{ github.token }}
@@ -128,7 +127,7 @@ jobs:
           private-key: ${{ secrets.SETTINGS_APP_PRIVATE_KEY }}
 
       - name: Sync repository settings
-        uses: run-action/gh-repo-settings@main
+        uses: run-action/gh-settings@main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
 ```
@@ -147,20 +146,6 @@ stored token.
 | `settings-path` | `.github/settings.yml` | Path to the settings file                         |
 | `github-token`  | *(required)*           | Token with the `Administration: write` repo scope |
 | `dry-run`       | `false`                | Report what would change without applying         |
-
-## Repo healthcheck
-
-`gh-repo-settings check` audits a repository against a secure-OSS baseline —
-including settings the sync *can't* manage: Dependabot, Actions token defaults, community
-files (SECURITY.md, CODEOWNERS, …), and workflow hygiene (SHA-pinned actions,
-explicit `permissions:`, `pull_request_target` usage). Admin-only checks
-degrade to warnings without an admin token; `--strict` makes warnings fail
-too. Dependabot malware alerts get a reminder line rather than a real check —
-GitHub exposes no REST API to read or set that toggle, so it can only be
-enabled by hand under Settings > Advanced Security. Exits non-zero on failure, so it works in CI — see
-[`healthcheck.yml`](.github/workflows/healthcheck.yml) for a copyable weekly
-workflow. This repo's [`.github/settings.yml`](.github/settings.yml) doubles
-as a copyable baseline.
 
 ## Requirements
 

@@ -1,5 +1,5 @@
 {
-  description = "repo-settings: settings.yml sync CLI, plus a lint dev shell";
+  description = "gh-settings: settings.yml sync CLI, plus a lint dev shell";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
@@ -30,16 +30,16 @@
         in
         {
           default = pkgs.stdenvNoCC.mkDerivation {
-            pname = "gh-repo-settings";
+            pname = "gh-settings";
             version = "0-unstable";
             src = self;
             nativeBuildInputs = [ pkgs.makeWrapper ];
             installPhase = ''
               runHook preInstall
               mkdir -p $out/libexec
-              cp gh-repo-settings $out/libexec/
+              cp gh-settings $out/libexec/
               cp -r scripts $out/libexec/scripts
-              makeWrapper $out/libexec/gh-repo-settings $out/bin/gh-repo-settings \
+              makeWrapper $out/libexec/gh-settings $out/bin/gh-settings \
                 --prefix PATH : ${
                   pkgs.lib.makeBinPath (
                     with pkgs;
@@ -53,7 +53,7 @@
                 }
               runHook postInstall
             '';
-            meta.mainProgram = "gh-repo-settings";
+            meta.mainProgram = "gh-settings";
           };
         }
       );
@@ -67,8 +67,8 @@
             name = "lint";
             runtimeInputs = linters pkgs;
             text = ''
-              shellcheck scripts/*.sh gh-repo-settings
-              shfmt -d scripts/*.sh gh-repo-settings
+              shellcheck scripts/*.sh gh-settings
+              shfmt -d scripts/*.sh gh-settings
               yamllint --strict .
               actionlint
               zizmor .
