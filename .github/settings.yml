@@ -2,15 +2,16 @@
 # (https://github.com/run-action/gh-repo-settings).
 
 repository:
-  description: "App-free GitHub Action that syncs .github/settings.yml to repo settings."
+  description: "Sync .github/settings.yml to repo settings."
   topics:
     - github-actions
+    - gh-extension
     - settings
     - automation
     - experimental
   # Recommended defaults for a tidy, secure open source repo — copy freely.
   # Checked by scripts/healthcheck.sh alongside settings this action cannot
-  # sync (secret scanning, Dependabot, ...). All keys in this block
+  # sync (Dependabot, ...). All keys in this block
   # follow the de facto probot/settings schema
   # (https://github.com/repository-settings/app/blob/master/docs/plugins/repository.md).
   private: false
@@ -19,6 +20,10 @@ repository:
   allow_merge_commit: false
   enable_vulnerability_alerts: true
   enable_automated_security_fixes: true
+  enable_secret_scanning: true
+  enable_secret_scanning_push_protection: true
+  enable_private_vulnerability_reporting: true
+  enable_immutable_releases: true
 
 # Extra "Update a repository" API fields that are NOT part of the de facto
 # probot/settings schema. This action merges them over repository:;
@@ -48,10 +53,11 @@ rulesets:
     rules:
       - type: deletion
       - type: non_fast_forward
-      - type: pull_request
-        parameters:
-          required_approving_review_count: 1
-          dismiss_stale_reviews_on_push: true
-          require_code_owner_review: false
-          require_last_push_approval: false
-          required_review_thread_resolution: true
+      # Uncomment to add pull request rules
+      # - type: pull_request
+      #   parameters:
+      #     required_approving_review_count: 1
+      #     dismiss_stale_reviews_on_push: true
+      #     require_code_owner_review: false
+      #     require_last_push_approval: false
+      #     required_review_thread_resolution: true

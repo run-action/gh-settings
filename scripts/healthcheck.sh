@@ -177,6 +177,10 @@ else
   warn "Dependabot alerts status not visible (HTTP $STATUS) — needs admin token"
 fi
 
+# No REST API exists to read or set malware alert status at the repo level
+# (requires Dependabot alerts to be enabled first) — can't be checked here.
+skip "Dependabot malware alerts — no API to verify; check Settings > Advanced Security"
+
 if [[ "$is_private" == "true" ]]; then
   skip "private vulnerability reporting (private repository)"
 else
@@ -193,6 +197,17 @@ if path_exists .github/dependabot.yml .github/dependabot.yaml; then
   pass ".github/dependabot.yml present (version updates)"
 else
   warn "no .github/dependabot.yml — Dependabot version updates not configured"
+fi
+
+# 200 means enabled; 404 means disabled (no admin scope required to read).
+api_get "repos/$REPO/immutable-releases"
+if [[ "$STATUS" == 200 ]]; then
+  check "$(jq -r '.enabled == true' <<<"$BODY")" \
+    "immutable releases enabled" "immutable releases disabled" warn
+elif [[ "$STATUS" == 404 ]]; then
+  warn "immutable releases disabled"
+else
+  warn "immutable releases status not visible (HTTP $STATUS)"
 fi
 
 # --- Default branch protection -----------------------------------------------
