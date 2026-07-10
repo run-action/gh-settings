@@ -249,17 +249,16 @@ sync_labels() {
   local desired
   desired="$(yq -o=json '.labels' "$SETTINGS_PATH")"
 
-  # Build lookup maps.
-  declare -A existing_map desired_map
+  # Build a lookup map of existing labels.
+  declare -A existing_map
   while IFS=$'\t' read -r name color desc; do
     existing_map["$name"]="$color"$'\t'"$desc"
   done < <(jq -r '.[] | [.name, .color, (.description // "")] | @tsv' <<<"$existing")
 
-  # Create or update desired labels.
+  # Create or update desired labels. Labels not in the file are left alone.
   local count=0
   while IFS=$'\t' read -r name color desc; do
     [[ -z "$name" ]] && continue
-    desired_map["$name"]=1
 
     if [[ -n "${existing_map["$name"]:-}" ]]; then
       # Compare — only PATCH if something changed.
@@ -289,14 +288,6 @@ sync_labels() {
     fi
     count=$((count + 1))
   done < <(jq -r '.[] | [.name, .color, (.description // "")] | @tsv' <<<"$desired")
-
-  # Delete labels not in the desired set.
-  for name in "${!existing_map[@]}"; do
-    if [[ -z "${desired_map["$name"]:-}" ]]; then
-      echo "  - $name (deleting)"
-      mutate DELETE "$repo_path/labels/$(urlencode "$name")"
-    fi
-  done
 
   echo "Labels synced: $count created or updated."
 }
@@ -364,6 +355,43 @@ sync_rulesets() {
   echo "Rulesets synced: $changed created or updated, $((count - changed)) unchanged."
 }
 
+# --- Sync Actions workflow permissions ----------------------------------------
+# actions: maps to the "Set default workflow permissions for a repository"
+# API (PUT /repos/{owner}/{repo}/actions/permissions/workflow). Only that
+# endpoint's two fields are recognized; when the block is absent the setting
+# is left unmanaged.
+sync_actions() {
+  if ! yq -e 'has("actions")' "$SETTINGS_PATH" >/dev/null 2>&1; then
+    echo "No actions: block found, skipping Actions sync."
+    return 0
+  fi
+
+  local desired
+  desired="$(yq -o=json '.actions' "$SETTINGS_PATH" | jq -c \
+    '{default_workflow_permissions, can_approve_pull_request_reviews}
+     | with_entries(select(.value != null))')"
+  if [[ "$desired" == "{}" ]]; then
+    echo "actions: block has no supported keys, nothing to sync."
+    return 0
+  fi
+
+  # Skip the PUT when current values already match; on read failure degrade
+  # to syncing anyway (the write is idempotent).
+  local current=""
+  current="$(api GET "$repo_path/actions/permissions/workflow" 2>/dev/null || true)"
+  if [[ -z "$current" ]]; then
+    echo "::warning::Could not fetch current Actions workflow permissions; syncing anyway."
+  elif jq -e --argjson cur "$current" "${JQ_PROJECT}"'
+      . as $d | ($cur | project($d)) == $d' <<<"$desired" >/dev/null; then
+    echo "Actions workflow permissions already match, nothing to sync."
+    return 0
+  fi
+
+  echo "Syncing Actions workflow permissions:"
+  jq '.' <<<"$desired"
+  mutate PUT "$repo_path/actions/permissions/workflow" "$desired"
+}
+
 echo "::group::Sync repository settings"
 sync_repository
 echo "::endgroup::"
@@ -374,6 +402,10 @@ echo "::endgroup::"
 
 echo "::group::Sync rulesets"
 sync_rulesets
+echo "::endgroup::"
+
+echo "::group::Sync Actions workflow permissions"
+sync_actions
 echo "::endgroup::"
 
 echo "Settings sync complete."
