@@ -32,6 +32,14 @@ repository_extra:
   allow_auto_merge: true
   allow_update_branch: true
 
+# Default GITHUB_TOKEN permissions for workflows; mirrors the "Set default
+# workflow permissions for a repository" API
+# (https://docs.github.com/en/rest/actions/permissions#set-default-workflow-permissions-for-a-repository).
+# probot/settings ignores this section.
+actions:
+  default_workflow_permissions: read
+  can_approve_pull_request_reviews: false
+
 # labels:
 #   - name: bug
 #     color: B60205
@@ -40,8 +48,10 @@ repository_extra:
 #     color: A2EEEF
 #     description: New feature or request
 
-# Tries to mirrors the "Create/update a repository ruleset" API shape directly:
-# https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset
+# Branch/tag rulesets mirror the "Create/update a repository ruleset" API
+# shape (https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset),
+# matched and updated by name. Rulesets removed from this list are NOT
+# deleted from the repo.
 rulesets:
   - name: default branch protection
     target: branch
@@ -53,11 +63,10 @@ rulesets:
     rules:
       - type: deletion
       - type: non_fast_forward
-      # Uncomment to add pull request rules
-      # - type: pull_request
-      #   parameters:
-      #     required_approving_review_count: 1
-      #     dismiss_stale_reviews_on_push: true
-      #     require_code_owner_review: false
-      #     require_last_push_approval: false
-      #     required_review_thread_resolution: true
+      - type: pull_request
+        parameters:
+          required_approving_review_count: 0
+          dismiss_stale_reviews_on_push: true
+          require_code_owner_review: false
+          require_last_push_approval: false
+          required_review_thread_resolution: true

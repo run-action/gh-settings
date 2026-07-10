@@ -97,6 +97,14 @@ repository_extra:
   allow_auto_merge: true
   allow_update_branch: true
 
+# Default GITHUB_TOKEN permissions for workflows; mirrors the "Set default
+# workflow permissions for a repository" API
+# (https://docs.github.com/en/rest/actions/permissions#set-default-workflow-permissions-for-a-repository).
+# probot/settings ignores this section.
+actions:
+  default_workflow_permissions: read
+  can_approve_pull_request_reviews: false
+
 # labels:
 #   - name: bug
 #     color: B60205
@@ -119,7 +127,9 @@ rulesets:
       - type: non_fast_forward
       - type: pull_request
         parameters:
-          required_approving_review_count: 1
+          # Reviews are not required by default so solo maintainers can merge
+          # their own PRs; set to 1 or more to require approving reviews.
+          required_approving_review_count: 0
           dismiss_stale_reviews_on_push: true
           require_code_owner_review: false
           require_last_push_approval: false

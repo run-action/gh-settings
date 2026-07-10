@@ -20,12 +20,18 @@ drop-in, app-free alternative to [probot/settings](https://github.com/apps/setti
   [Update-a-repository](https://docs.github.com/en/rest/repos/repos#update-a-repository)
   field (e.g. `visibility`, `has_discussions`, `allow_auto_merge`). Merged
   over `repository:`; probot/settings ignores it, so the file stays portable
-- **`labels:`** — creates / updates / deletes labels to match the file
+- **`labels:`** — creates / updates labels from the file; labels not listed
+  in the file are left alone
 - **`rulesets:`** — creates / updates branch or tag rulesets, matched by
   `name`. Not part of the probot/settings schema, so this mirrors the
   [Create/update a repository ruleset](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset)
   API shape directly. Rulesets removed from the file are left alone —
   unrelated rulesets may exist on the repo
+- **`actions:`** — default `GITHUB_TOKEN` permissions for workflows, via the
+  [Set default workflow permissions](https://docs.github.com/en/rest/actions/permissions#set-default-workflow-permissions-for-a-repository)
+  API: `default_workflow_permissions` (`read`/`write`) and
+  `can_approve_pull_request_reviews`. probot/settings ignores it; when the
+  block is absent the setting is left unmanaged
 
 ## CLI
 
